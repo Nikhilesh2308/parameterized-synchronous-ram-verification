@@ -15,6 +15,10 @@ module tb_sync_ram;
     integer pass_count = 0;
     integer fail_count = 0;
     reg [DATA_WIDTH-1:0] expected;
+    reg [8*256-1:0] init_file;
+    reg [8*256-1:0] dump_file;
+    integer init_loaded;
+    integer dump_requested;
 
     sync_ram #(.DATA_WIDTH(DATA_WIDTH), .ADDR_WIDTH(ADDR_WIDTH), .DEPTH(DEPTH)) dut (
         .clk(clk), .en(en), .we(we), .addr(addr), .wdata(wdata), .rdata(rdata)
@@ -53,16 +57,27 @@ module tb_sync_ram;
         end
     endtask
 
-    task check_value;
-        input [DATA_WIDTH-1:0] actual;
-        input [DATA_WIDTH-1:0] exp;
-        input [8*48-1:0] label_text;
+    task bd_write;
+        input [ADDR_WIDTH-1:0] a;
+        input [DATA_WIDTH-1:0] d;
         begin
+            @(negedge clk);
+            dut.mem[a] = d;
+            $display("INFO BD write addr=%0d data=0x%0h", a, d);
+        end
+    endtask
+
+    task bd_read_check;
+        input [ADDR_WIDTH-1:0] a;
+        input [DATA_WIDTH-1:0] exp;
+        reg [DATA_WIDTH-1:0] actual;
+        begin
+            actual = dut.mem[a];
             if (actual !== exp) begin
-                $display("FAIL %0s expected=0x%0h got=0x%0h", label_text, exp, actual);
+                $display("FAIL BD read addr=%0d expected=0x%0h got=0x%0h", a, exp, actual);
                 fail_count = fail_count + 1;
             end else begin
-                $display("PASS %0s data=0x%0h", label_text, actual);
+                $display("PASS BD read addr=%0d data=0x%0h", a, actual);
                 pass_count = pass_count + 1;
             end
         end
@@ -72,25 +87,40 @@ module tb_sync_ram;
         $dumpfile("sync_ram.vcd");
         $dumpvars(0, tb_sync_ram);
 
+        // Optional initialization: pass +INIT_FILE=sim/init.hex to the simulator.
+        init_loaded = $value$plusargs("INIT_FILE=%s", init_file);
+        if (init_loaded) begin
+            $display("INFO loading memory from %0s", init_file);
+            $readmemh(init_file, dut.mem);
+        end else begin
+            $display("INFO INIT_FILE not supplied; starting with simulator-default memory contents");
+        end
+
         // Scenario 1: Front-door write -> front-door read.
         fd_write(4'd1, 8'hA1);
         fd_read_check(4'd1, 8'hA1);
 
         // Scenario 2: Back-door write -> back-door read.
-        @(negedge clk);
-        dut.mem[2] = 8'hB2;
-        expected = dut.mem[2];
-        check_value(expected, 8'hB2, "BD Write -> BD Read");
+        bd_write(4'd2, 8'hB2);
+        bd_read_check(4'd2, 8'hB2);
 
         // Scenario 3: Back-door write -> front-door read.
-        @(negedge clk);
-        dut.mem[3] = 8'hC3;
+        bd_write(4'd3, 8'hC3);
         fd_read_check(4'd3, 8'hC3);
 
         // Scenario 4: Front-door write -> back-door read.
         fd_write(4'd4, 8'hD4);
-        expected = dut.mem[4];
-        check_value(expected, 8'hD4, "FD Write -> BD Read");
+        bd_read_check(4'd4, 8'hD4);
+
+        // Optional memory export controlled by a runtime plusarg.
+        dump_requested = $value$plusargs("DUMP_FILE=%s", dump_file);
+        if (dump_requested) begin
+            $writememh(dump_file, dut.mem);
+            $display("INFO wrote memory dump to %0s", dump_file);
+        end else begin
+            $writememh("ram_dump.hex", dut.mem);
+            $display("INFO wrote memory dump to ram_dump.hex");
+        end
 
         $display("--------------------------------");
         $display("RAM test summary: PASS=%0d FAIL=%0d", pass_count, fail_count);
