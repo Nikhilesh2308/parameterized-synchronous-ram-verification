@@ -1,78 +1,47 @@
 # Parameterized Synchronous RAM Verification
 
-A Verilog project for a parameterized synchronous RAM and a testbench covering front-door (FD) and back-door (BD) memory access combinations.
+Parameterized synchronous single-port RAM with a testbench demonstrating front-door (FD) and back-door (BD) memory access scenarios.
 
-## Objectives
+## Features
+- Configurable data width, address width, and depth.
+- Synchronous front-door read/write.
+- Testbench-side back-door memory access for simulation.
+- Four FD/BD access combinations.
+- VCD waveform dumping.
 
-- Design a synchronous RAM with configurable data width and depth.
-- Verify memory behavior through normal interface transactions (front-door access).
-- Exercise controlled testbench-side memory access (back-door access).
-- Explore memory initialization and file-based data handling with `$readmemh` and `$writememh`.
-- Use plusargs where supported to select test options or file names.
+## Files
+- `rtl/sync_ram.v` — parameterized synchronous RAM RTL.
+- `tb/tb_sync_ram.v` — testbench with FD/BD access checks.
+- `sim/init.hex` — example initialization data for future file-based initialization exercises.
+- `sim/run.sh` — local Icarus Verilog compile/run script.
 
 ## Access scenarios
+1. FD Write → FD Read.
+2. BD Write → BD Read.
+3. BD Write → FD Read.
+4. FD Write → BD Read.
 
-The test plan covers these four combinations:
+## Run locally
+Install Icarus Verilog, then run from the repository root:
 
-1. **FD Write → FD Read:** Write through the RAM interface and read through the interface.
-2. **BD Write → BD Read:** Write and read through testbench back-door access.
-3. **BD Write → FD Read:** Initialize or modify memory through back-door access, then read through the interface.
-4. **FD Write → BD Read:** Write through the interface, then inspect memory through back-door access.
-
-## Repository layout
-
-```text
-.
-├── rtl/       # Parameterized RAM RTL
-├── tb/        # Testbench and access tasks
-├── sim/       # Run scripts and memory initialization data
-└── README.md
+```bash
+bash sim/run.sh
 ```
 
-## Run online with EDA Playground
+Review the output for the PASS checks and final `RAM test summary`. Run it yourself and confirm `FAIL=0` before reporting the project as verified.
 
+## Run on EDA Playground
 1. Open [EDA Playground](https://www.edaplayground.com/).
-2. Select Verilog/SystemVerilog and a supported simulator.
-3. Paste the RAM RTL into the Design pane and the testbench into the Testbench pane.
-4. If the test uses an initialization file, add it using the playground's supported file options or initialize the memory in the testbench.
-5. Click **Run** and review the transcript. Enable EPWave to inspect waveforms.
+2. Select Verilog and a supported simulator.
+3. Paste `rtl/sync_ram.v` into the Design pane.
+4. Paste `tb/tb_sync_ram.v` into the Testbench pane.
+5. Run and inspect the transcript. Enable EPWave for waveforms if desired.
 
-**Compatibility note:** EDA Playground does not automatically execute a local `run.sh` script. External file paths and command-line plusargs may need adapting to the selected simulator and playground settings.
+## Notes
+Back-door access via `dut.mem[index]` is a simulation testbench technique, not a synthesizable interface. The example `sim/init.hex` file is included for a follow-on exercise; the current testbench writes memory directly and does not consume that file.
 
-## Run locally with Icarus Verilog
+## Verification status
+Source and testbench have been added. Simulation results have not been independently confirmed in this repository yet.
 
-After the source files are added, a typical command is:
-
-```bash
-iverilog -g2012 -o sim.out rtl/*.v tb/*.v
-vvp sim.out
-```
-
-If the testbench uses plusargs, pass them to `vvp`, for example:
-
-```bash
-vvp sim.out +MEMFILE=sim/init.hex
-```
-
-The plusarg name must match the one read by the testbench.
-
-## Verification checklist
-
-- [ ] Confirm synchronous read/write timing.
-- [ ] Check address and data boundaries.
-- [ ] Run all four FD/BD access combinations.
-- [ ] Check initialization-file behavior.
-- [ ] Confirm expected data and report mismatches.
-- [ ] Record actual simulator output and results.
-
-## Status
-
-**Documentation scaffold:** Update this section after adding the RTL and testbench and running the tests. Do not report passing results until they have been observed in a simulator.
-
-## Skills demonstrated
-
-Verilog HDL, parameterized memory design, testbench tasks, front-door/back-door verification concepts, file-based memory initialization, simulator arguments, functional checking.
-
-## License
-
-Choose a license before distributing or reusing this project.
+## Skills
+Verilog HDL, parameterized memories, testbench tasks, front-door/back-door access, simulation-based functional verification.
